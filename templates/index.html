@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SoundPad</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        h1 {
+            text-align: center;
+        }
+        .info {
+            background: #fff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+        }
+        .controls {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:active {
+            background: #3d8b40;
+        }
+
+        /* Now Playing Section */
+        .now-playing {
+            background: #fff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 2px solid #FF9800;
+            min-height: 60px;
+        }
+        .now-playing h2 {
+            margin-top: 0;
+            color: #FF9800;
+        }
+        .playing-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            margin: 5px 0;
+            background: #fff3e0;
+            border-left: 4px solid #FF9800;
+        }
+        .playing-item-name {
+            font-weight: bold;
+            flex-grow: 1;
+        }
+        .playing-item-loop {
+            margin-left: 10px;
+            color: #666;
+            font-size: 12px;
+        }
+        .stop-btn {
+            background: #f44336;
+            padding: 5px 15px;
+            font-size: 14px;
+        }
+        .stop-btn:hover {
+            background: #da190b;
+        }
+        .no-playing {
+            color: #999;
+            font-style: italic;
+        }
+
+        /* Sound Grid */
+        .sound-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .sound-card {
+            background: #fff;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+        .sound-card.playing {
+            border-color: #FF9800;
+            background: #fff3e0;
+        }
+        .sound-btn {
+            padding: 30px;
+            font-size: 14px;
+            word-wrap: break-word;
+            background: #2196F3;
+            margin-bottom: 10px;
+        }
+        .sound-btn:hover {
+            background: #0b7dda;
+        }
+        .sound-btn:active {
+            background: #0969c3;
+        }
+        .sound-card.playing .sound-btn {
+            background: #FF9800;
+        }
+        .sound-card.playing .sound-btn:hover {
+            background: #F57C00;
+        }
+        .loop-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+        }
+        .loop-control input[type="checkbox"] {
+            margin-right: 8px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .loop-control label {
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .no-sounds {
+            text-align: center;
+            padding: 50px;
+            background: #fff;
+            border: 2px dashed #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>SoundPad</h1>
+
+    <div class="info">
+        <strong>How to use:</strong>
+        <ul>
+            <li>Click sound buttons to play</li>
+            <li>Check "Loop" to repeat a sound continuously</li>
+            <li>Stop individual sounds from "Now Playing" section</li>
+            <li>Add sounds: Drop audio files in 'sounds' folder and refresh</li>
+        </ul>
+    </div>
+
+    <div class="controls">
+        <button onclick="location.reload()">Refresh Sounds</button>
+        <button onclick="stopAll()">Stop All Sounds</button>
+    </div>
+
+    <!-- Now Playing Section -->
+    <div class="now-playing">
+        <h2>Now Playing</h2>
+        <div id="playing-list">
+            <div class="no-playing">No sounds currently playing</div>
+        </div>
+    </div>
+
+    {% if sounds %}
+        <div class="sound-grid">
+            {% for sound in sounds %}
+                <div class="sound-card" id="card-{{ loop.index0 }}">
+                    <button class="sound-btn" onclick="playSound('{{ sound.file }}', '{{ sound.name }}', {{ loop.index0 }})">
+                        {{ sound.name }}
+                    </button>
+                    <div class="loop-control">
+                        <input type="checkbox" id="loop-{{ loop.index0 }}" onclick="event.stopPropagation()">
+                        <label for="loop-{{ loop.index0 }}">Loop</label>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="no-sounds">
+            <h2>No sounds found!</h2>
+            <p>Add audio files to the 'sounds' folder and refresh the page.</p>
+        </div>
+    {% endif %}
+
+    <script>
+        // Store currently playing audio elements with metadata
+        let playingAudios = [];
+        let nextId = 0;
+
+        function playSound(filename, name, cardIndex) {
+            const shouldLoop = document.getElementById('loop-' + cardIndex).checked;
+            const audio = new Audio('/sounds/' + filename);
+            audio.loop = shouldLoop;
+
+            const audioId = nextId++;
+            const audioData = {
+                id: audioId,
+                audio: audio,
+                name: name,
+                filename: filename,
+                cardIndex: cardIndex,
+                loop: shouldLoop
+            };
+
+            playingAudios.push(audioData);
+
+            // Update UI when sound starts playing
+            audio.addEventListener('canplay', function() {
+                updatePlayingList();
+                updateCardHighlight(cardIndex, true);
+            });
+
+            // Remove from array when finished (only if not looping)
+            audio.addEventListener('ended', function() {
+                const index = playingAudios.findIndex(a => a.id === audioId);
+                if (index > -1) {
+                    playingAudios.splice(index, 1);
+                    updatePlayingList();
+                    updateCardHighlight(cardIndex, false);
+                }
+            });
+
+            audio.play().catch(function(error) {
+                console.error('Error playing sound:', error);
+                const index = playingAudios.findIndex(a => a.id === audioId);
+                if (index > -1) {
+                    playingAudios.splice(index, 1);
+                    updatePlayingList();
+                }
+            });
+        }
+
+        function stopSound(audioId) {
+            const index = playingAudios.findIndex(a => a.id === audioId);
+            if (index > -1) {
+                const audioData = playingAudios[index];
+                audioData.audio.pause();
+                audioData.audio.currentTime = 0;
+                updateCardHighlight(audioData.cardIndex, false);
+                playingAudios.splice(index, 1);
+                updatePlayingList();
+            }
+        }
+
+        function stopAll() {
+            playingAudios.forEach(function(audioData) {
+                audioData.audio.pause();
+                audioData.audio.currentTime = 0;
+                updateCardHighlight(audioData.cardIndex, false);
+            });
+            playingAudios = [];
+            updatePlayingList();
+        }
+
+        function updatePlayingList() {
+            const container = document.getElementById('playing-list');
+
+            if (playingAudios.length === 0) {
+                container.innerHTML = '<div class="no-playing">No sounds currently playing</div>';
+                return;
+            }
+
+            let html = '';
+            playingAudios.forEach(function(audioData) {
+                html += `
+                    <div class="playing-item">
+                        <span class="playing-item-name">${audioData.name}</span>
+                        ${audioData.loop ? '<span class="playing-item-loop">(Looping)</span>' : ''}
+                        <button class="stop-btn" onclick="stopSound(${audioData.id})">Stop</button>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function updateCardHighlight(cardIndex, isPlaying) {
+            const card = document.getElementById('card-' + cardIndex);
+            if (card) {
+                if (isPlaying) {
+                    // Check if any sound from this card is still playing
+                    const stillPlaying = playingAudios.some(a => a.cardIndex === cardIndex);
+                    if (stillPlaying) {
+                        card.classList.add('playing');
+                    }
+                } else {
+                    // Only remove highlight if no sounds from this card are playing
+                    const stillPlaying = playingAudios.some(a => a.cardIndex === cardIndex);
+                    if (!stillPlaying) {
+                        card.classList.remove('playing');
+                    }
+                }
+            }
+        }
+
+        // Keyboard shortcuts (1-9, 0 for first 10 sounds)
+        document.addEventListener('keydown', function(e) {
+            const key = e.key;
+            if (key >= '1' && key <= '9') {
+                const index = parseInt(key) - 1;
+                const buttons = document.querySelectorAll('.sound-btn');
+                if (buttons[index]) {
+                    buttons[index].click();
+                }
+            } else if (key === '0') {
+                const buttons = document.querySelectorAll('.sound-btn');
+                if (buttons[9]) {
+                    buttons[9].click();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

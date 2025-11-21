@@ -1,0 +1,16 @@
+Add your audio files here!
+
+Supported formats:
+- .mp3
+- .wav
+- .ogg
+- .m4a
+- .flac
+
+The filename (without extension) will be used as the button name.
+
+Example:
+  applause.mp3  ->  Button labeled "applause"
+  epic_fail.wav ->  Button labeled "epic_fail"
+
+After adding files, just refresh the webpage!
