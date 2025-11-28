@@ -281,18 +281,27 @@
 
             const audioId = nextId++;
 
+            let analyser = null;
+            let gainNode = null;
+            let source = null;
+
             // Setup Web Audio API for visualization
-            const context = initAudioContext();
-            const source = context.createMediaElementSource(audio);
-            const analyser = context.createAnalyser();
-            analyser.fftSize = 256;
+            try {
+                const context = initAudioContext();
+                source = context.createMediaElementSource(audio);
+                analyser = context.createAnalyser();
+                analyser.fftSize = 256;
 
-            const gainNode = context.createGain();
-            gainNode.gain.value = volumeLevel;
+                gainNode = context.createGain();
+                gainNode.gain.value = volumeLevel;
 
-            source.connect(analyser);
-            analyser.connect(gainNode);
-            gainNode.connect(context.destination);
+                source.connect(analyser);
+                analyser.connect(gainNode);
+                gainNode.connect(context.destination);
+            } catch (error) {
+                console.warn('Web Audio API setup failed, falling back to regular audio:', error);
+                // If Web Audio API fails, we'll still play the audio without visualization
+            }
 
             const audioData = {
                 id: audioId,
@@ -308,13 +317,15 @@
 
             playingAudios.push(audioData);
 
-            // Show visualizer
+            // Show visualizer only if we have an analyser
             const visualizerContainer = document.getElementById('visualizer-container-' + cardIndex);
             const canvas = document.getElementById('visualizer-' + cardIndex);
-            visualizerContainer.classList.add('active');
 
-            // Start visualization
-            startVisualization(audioData, canvas);
+            if (analyser) {
+                visualizerContainer.classList.add('active');
+                // Start visualization
+                startVisualization(audioData, canvas);
+            }
 
             // Update UI when sound starts playing
             audio.addEventListener('canplay', function() {
