@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SoundPad</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        h1 {
+            text-align: center;
+        }
+        .info {
+            background: #fff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+        }
+        .controls {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:active {
+            background: #3d8b40;
+        }
+
+        /* Now Playing Section */
+        .now-playing {
+            background: #fff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 2px solid #FF9800;
+            min-height: 60px;
+        }
+        .now-playing h2 {
+            margin-top: 0;
+            color: #FF9800;
+        }
+        .playing-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            margin: 5px 0;
+            background: #fff3e0;
+            border-left: 4px solid #FF9800;
+        }
+        .playing-item-name {
+            font-weight: bold;
+            flex-grow: 1;
+        }
+        .playing-item-loop {
+            margin-left: 10px;
+            color: #666;
+            font-size: 12px;
+        }
+        .stop-btn {
+            background: #f44336;
+            padding: 5px 15px;
+            font-size: 14px;
+        }
+        .stop-btn:hover {
+            background: #da190b;
+        }
+        .no-playing {
+            color: #999;
+            font-style: italic;
+        }
+
+        /* Sound Grid */
+        .sound-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .sound-card {
+            background: #fff;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+        .sound-card.playing {
+            border-color: #FF9800;
+            background: #fff3e0;
+        }
+        .sound-btn {
+            padding: 30px;
+            font-size: 14px;
+            word-wrap: break-word;
+            background: #2196F3;
+            margin-bottom: 10px;
+        }
+        .sound-btn:hover {
+            background: #0b7dda;
+        }
+        .sound-btn:active {
+            background: #0969c3;
+        }
+        .sound-card.playing .sound-btn {
+            background: #FF9800;
+        }
+        .sound-card.playing .sound-btn:hover {
+            background: #F57C00;
+        }
+        .loop-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+        }
+        .loop-control input[type="checkbox"] {
+            margin-right: 8px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .loop-control label {
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .volume-control {
+            padding: 5px 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .volume-control label {
+            font-size: 12px;
+            min-width: 45px;
+        }
+        .volume-control input[type="range"] {
+            flex-grow: 1;
+            cursor: pointer;
+        }
+        .volume-value {
+            font-size: 12px;
+            min-width: 35px;
+            text-align: right;
+            font-weight: bold;
+        }
+        .sound-group {
+            margin-bottom: 30px;
+        }
+        .group-header {
+            background: #333;
+            color: white;
+            padding: 10px 15px;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-radius: 4px;
+        }
+        .visualizer-container {
+            height: 60px;
+            margin: 5px 0;
+            background: #000;
+            border-radius: 4px;
+            overflow: hidden;
+            display: none;
+        }
+        .visualizer-container.active {
+            display: block;
+        }
+        .visualizer-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .no-sounds {
+            text-align: center;
+            padding: 50px;
+            background: #fff;
+            border: 2px dashed #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>SoundPad</h1>
+
+    <div class="info">
+        <strong>How to use:</strong>
+        <ul>
+            <li>Click sound buttons to play (visualizer appears automatically)</li>
+            <li>Adjust volume slider for each sound (0-100%)</li>
+            <li>Check "Loop" to repeat a sound continuously</li>
+            <li>Stop individual sounds from "Now Playing" section</li>
+            <li>Organize sounds: Create folders in 'sounds' directory (e.g., 'sounds/music/', 'sounds/effects/')</li>
+        </ul>
+    </div>
+
+    <div class="controls">
+        <button onclick="location.reload()">Refresh Sounds</button>
+        <button onclick="stopAll()">Stop All Sounds</button>
+    </div>
+
+    <!-- Now Playing Section -->
+    <div class="now-playing">
+        <h2>Now Playing</h2>
+        <div id="playing-list">
+            <div class="no-playing">No sounds currently playing</div>
+        </div>
+    </div>
+
+    {% if sounds %}
+        {% set sound_index = namespace(value=0) %}
+        {% for group_name, group_sounds in sounds.items() %}
+            <div class="sound-group">
+                <div class="group-header">{{ group_name }}</div>
+                <div class="sound-grid">
+                    {% for sound in group_sounds %}
+                        <div class="sound-card" id="card-{{ sound_index.value }}">
+                            <button class="sound-btn" onclick="playSound('{{ sound.file }}', '{{ sound.name }}', {{ sound_index.value }})">
+                                {{ sound.name }}
+                            </button>
+                            <div class="visualizer-container" id="visualizer-container-{{ sound_index.value }}">
+                                <canvas class="visualizer-canvas" id="visualizer-{{ sound_index.value }}"></canvas>
+                            </div>
+                            <div class="volume-control">
+                                <label for="volume-{{ sound_index.value }}">Volume:</label>
+                                <input type="range" id="volume-{{ sound_index.value }}" min="0" max="100" value="100"
+                                       oninput="updateVolumeDisplay({{ sound_index.value }})" onclick="event.stopPropagation()">
+                                <span class="volume-value" id="volume-display-{{ sound_index.value }}">100%</span>
+                            </div>
+                            <div class="loop-control">
+                                <input type="checkbox" id="loop-{{ sound_index.value }}" onclick="event.stopPropagation()">
+                                <label for="loop-{{ sound_index.value }}">Loop</label>
+                            </div>
+                        </div>
+                        {% set sound_index.value = sound_index.value + 1 %}
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="no-sounds">
+            <h2>No sounds found!</h2>
+            <p>Add audio files to the 'sounds' folder and refresh the page.</p>
+        </div>
+    {% endif %}
+
+    <script>
+        // Store currently playing audio elements with metadata
+        let playingAudios = [];
+        let nextId = 0;
+        let audioContext = null;
+
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            return audioContext;
+        }
+
+        function playSound(filename, name, cardIndex) {
+            const shouldLoop = document.getElementById('loop-' + cardIndex).checked;
+            const volumeSlider = document.getElementById('volume-' + cardIndex);
+            const volumeLevel = volumeSlider.value / 100;
+
+            const audio = new Audio('/sounds/' + filename);
+            audio.loop = shouldLoop;
+            audio.volume = volumeLevel;
+            audio.crossOrigin = "anonymous";
+
+            const audioId = nextId++;
+
+            // Setup Web Audio API for visualization
+            const context = initAudioContext();
+            const source = context.createMediaElementSource(audio);
+            const analyser = context.createAnalyser();
+            analyser.fftSize = 256;
+
+            const gainNode = context.createGain();
+            gainNode.gain.value = volumeLevel;
+
+            source.connect(analyser);
+            analyser.connect(gainNode);
+            gainNode.connect(context.destination);
+
+            const audioData = {
+                id: audioId,
+                audio: audio,
+                name: name,
+                filename: filename,
+                cardIndex: cardIndex,
+                loop: shouldLoop,
+                analyser: analyser,
+                gainNode: gainNode,
+                animationId: null
+            };
+
+            playingAudios.push(audioData);
+
+            // Show visualizer
+            const visualizerContainer = document.getElementById('visualizer-container-' + cardIndex);
+            const canvas = document.getElementById('visualizer-' + cardIndex);
+            visualizerContainer.classList.add('active');
+
+            // Start visualization
+            startVisualization(audioData, canvas);
+
+            // Update UI when sound starts playing
+            audio.addEventListener('canplay', function() {
+                updatePlayingList();
+                updateCardHighlight(cardIndex, true);
+            });
+
+            // Remove from array when finished (only if not looping)
+            audio.addEventListener('ended', function() {
+                const index = playingAudios.findIndex(a => a.id === audioId);
+                if (index > -1) {
+                    stopVisualization(audioData);
+                    visualizerContainer.classList.remove('active');
+                    playingAudios.splice(index, 1);
+                    updatePlayingList();
+                    updateCardHighlight(cardIndex, false);
+                }
+            });
+
+            audio.play().catch(function(error) {
+                console.error('Error playing sound:', error);
+                const index = playingAudios.findIndex(a => a.id === audioId);
+                if (index > -1) {
+                    stopVisualization(audioData);
+                    visualizerContainer.classList.remove('active');
+                    playingAudios.splice(index, 1);
+                    updatePlayingList();
+                }
+            });
+        }
+
+        function startVisualization(audioData, canvas) {
+            const canvasContext = canvas.getContext('2d');
+            const analyser = audioData.analyser;
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            function draw() {
+                audioData.animationId = requestAnimationFrame(draw);
+
+                analyser.getByteFrequencyData(dataArray);
+
+                canvasContext.fillStyle = 'rgb(0, 0, 0)';
+                canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+
+                const barWidth = (canvas.width / bufferLength) * 2.5;
+                let barHeight;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    barHeight = (dataArray[i] / 255) * canvas.height;
+
+                    // Warm color gradient: orange to coral to pink
+                    const intensity = barHeight / canvas.height;
+                    const progress = i / bufferLength;
+
+                    // Mix between warm yellow-orange and coral-pink
+                    const r = 255 - (progress * 50);           // 255 -> 205 (bright red to coral)
+                    const g = 150 + (intensity * 80) - (progress * 40);  // Warm orange to coral
+                    const b = 80 + (progress * 120) + (intensity * 30);  // Light warmth
+
+                    canvasContext.fillStyle = 'rgb(' + Math.floor(r) + ',' + Math.floor(g) + ',' + Math.floor(b) + ')';
+                    canvasContext.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+
+                    x += barWidth + 1;
+                }
+            }
+
+            draw();
+        }
+
+        function stopVisualization(audioData) {
+            if (audioData.animationId) {
+                cancelAnimationFrame(audioData.animationId);
+                audioData.animationId = null;
+            }
+        }
+
+        function updateVolumeDisplay(cardIndex) {
+            const volumeSlider = document.getElementById('volume-' + cardIndex);
+            const volumeDisplay = document.getElementById('volume-display-' + cardIndex);
+            volumeDisplay.textContent = volumeSlider.value + '%';
+
+            // Update volume for any currently playing sounds from this card
+            playingAudios.forEach(function(audioData) {
+                if (audioData.cardIndex === cardIndex) {
+                    const newVolume = volumeSlider.value / 100;
+                    if (audioData.gainNode) {
+                        audioData.gainNode.gain.value = newVolume;
+                    } else {
+                        audioData.audio.volume = newVolume;
+                    }
+                }
+            });
+        }
+
+        function stopSound(audioId) {
+            const index = playingAudios.findIndex(a => a.id === audioId);
+            if (index > -1) {
+                const audioData = playingAudios[index];
+                audioData.audio.pause();
+                audioData.audio.currentTime = 0;
+                stopVisualization(audioData);
+
+                const visualizerContainer = document.getElementById('visualizer-container-' + audioData.cardIndex);
+                if (visualizerContainer) {
+                    visualizerContainer.classList.remove('active');
+                }
+
+                updateCardHighlight(audioData.cardIndex, false);
+                playingAudios.splice(index, 1);
+                updatePlayingList();
+            }
+        }
+
+        function stopAll() {
+            playingAudios.forEach(function(audioData) {
+                audioData.audio.pause();
+                audioData.audio.currentTime = 0;
+                stopVisualization(audioData);
+
+                const visualizerContainer = document.getElementById('visualizer-container-' + audioData.cardIndex);
+                if (visualizerContainer) {
+                    visualizerContainer.classList.remove('active');
+                }
+
+                updateCardHighlight(audioData.cardIndex, false);
+            });
+            playingAudios = [];
+            updatePlayingList();
+        }
+
+        function updatePlayingList() {
+            const container = document.getElementById('playing-list');
+
+            if (playingAudios.length === 0) {
+                container.innerHTML = '<div class="no-playing">No sounds currently playing</div>';
+                return;
+            }
+
+            let html = '';
+            playingAudios.forEach(function(audioData) {
+                html += `
+                    <div class="playing-item">
+                        <span class="playing-item-name">${audioData.name}</span>
+                        ${audioData.loop ? '<span class="playing-item-loop">(Looping)</span>' : ''}
+                        <button class="stop-btn" onclick="stopSound(${audioData.id})">Stop</button>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function updateCardHighlight(cardIndex, isPlaying) {
+            const card = document.getElementById('card-' + cardIndex);
+            if (card) {
+                if (isPlaying) {
+                    // Check if any sound from this card is still playing
+                    const stillPlaying = playingAudios.some(a => a.cardIndex === cardIndex);
+                    if (stillPlaying) {
+                        card.classList.add('playing');
+                    }
+                } else {
+                    // Only remove highlight if no sounds from this card are playing
+                    const stillPlaying = playingAudios.some(a => a.cardIndex === cardIndex);
+                    if (!stillPlaying) {
+                        card.classList.remove('playing');
+                    }
+                }
+            }
+        }
+
+        // Keyboard shortcuts (1-9, 0 for first 10 sounds)
+        document.addEventListener('keydown', function(e) {
+            const key = e.key;
+            if (key >= '1' && key <= '9') {
+                const index = parseInt(key) - 1;
+                const buttons = document.querySelectorAll('.sound-btn');
+                if (buttons[index]) {
+                    buttons[index].click();
+                }
+            } else if (key === '0') {
+                const buttons = document.querySelectorAll('.sound-btn');
+                if (buttons[9]) {
+                    buttons[9].click();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
